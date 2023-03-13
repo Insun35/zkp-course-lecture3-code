@@ -3,16 +3,18 @@ pragma circom 2.0.0;
 template NonEqual(){
     signal input in0;
     signal input in1;
-    signal inv;
-    inv <-- 1/ (in0 - in1);
-    inv*(in0 - in1) === 1;
+    // check that (in0 - in1) is non-zero.
+    signal inverse;
+    inverse <-- 1/(in0-in1);
+    inverse*(in0-in1) === 1;
 }
 
+// all elements are unique in the array
 template Distinct(n) {
     signal input in[n];
     component nonEqual[n][n];
     for(var i = 0; i < n; i++){
-        for(var j = 0; j < i; j++){
+        for(var j = 0; j < i; j++) {
             nonEqual[i][j] = NonEqual();
             nonEqual[i][j].in0 <== in[i];
             nonEqual[i][j].in1 <== in[j];
@@ -48,27 +50,40 @@ template Sudoku(n) {
     // puzzle is the same, but a zero indicates a blank
     signal input puzzle[n][n];
 
-    component distinct[n];
+    // ensure that each solution # is in-range.
     component inRange[n][n];
-
-    for (var row_i = 0; row_i < n; row_i++) {
-        for (var col_i = 0; col_i < n; col_i++) {
-            // we could make this a component
-            puzzle[row_i][col_i] * (puzzle[row_i][col_i] - solution[row_i][col_i]) === 0;
+    for(var i = 0; i < n; i++){
+        for(var j = 0; j < n; j++){
+            inRange[i][j] = OneToNine();
+            inRange[i][j].in <== solution[i][j];
         }
     }
 
-    for (var row_i = 0; row_i < n; row_i++) {
-        for (var col_i = 0; col_i < n; col_i++) {
-            if (row_i == 0) {
-                distinct[col_i] = Distinct(n);
-            }
-            inRange[row_i][col_i] = OneToNine();
-            inRange[row_i][col_i].in <== solution[row_i][col_i];
-            distinct[col_i].in[row_i] <== solution[row_i][col_i];
+    // ensure that puzzle and solution agree.
+    for(var i = 0; i < n; i++){
+        for(var j = 0; j < n; j++){
+            //puzzle * (puzzle - solution) === 0
+            puzzle[i][j] * (puzzle[i][j] - solution[i][j]) === 0;
+        }
+    }
+
+     // ensure uniqueness in Rows.
+    component distinctRow[n];
+    for(var i = 0; i < n; i++){
+        distinctRow[i] = Distinct(n);
+        for(var j = 0; j < n; j++){
+            distinctRow[i].in[j] <== solution[i][j];
+        }
+    }
+
+    // ensure uniqueness in Columns.
+    component distinctCol[n];
+    for(var j = 0; j < n; j++){
+        distinctCol[j] = Distinct(n);
+        for(var i = 0; i < n; i++){
+            distinctCol[j].in[i] <== solution[i][j];
         }
     }
 }
 
 component main {public[puzzle]} = Sudoku(9);
-
